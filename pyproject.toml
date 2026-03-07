@@ -1,0 +1,24 @@
+[project]
+name = "quantagentlangchain"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13.7"
+dependencies = [
+    "asyncpg",
+    "fastapi",
+    "httpx",
+    "langchain",
+    "langchain-community",
+    "langchain-openai",
+    "langgraph",
+    "psycopg2-binary",
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "python-multipart",
+    "qdrant-client",
+    "sqlalchemy",
+    "sse-starlette",
+    "uvicorn[standard]",
+]
