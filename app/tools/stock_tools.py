@@ -1,43 +1,50 @@
 """
 股票数据工具 - LangChain 工具定义
 """
+
 from langchain.tools import tool
 from app.services.stock_service import stock_data_service
 from typing import Optional
 
 
 @tool
-async def get_kline(
+async def get_kline_bao(
     stock_code: str,
     start_date: str,
     end_date: str,
     frequency: Optional[str] = "d",
-    adjustflag: Optional[str] = "3"
+    adjustflag: Optional[str] = "3",
 ) -> str:
     """
     获取某只股票的K线数据信息
-    
+
     Args:
         stock_code: 股票代码，如 sh.600000 或 sz.000001, 必须以sh.(沪市)或sz.(深市)开头
         start_date: 开始日期，格式 2024-07-01
         end_date: 结束日期，格式 2024-12-31
         frequency: 数据频率（可选，默认d=日线），可选值: d=日, w=周, m=月, 5=5分钟, 15=15分钟, 30=30分钟, 60=60分钟
         adjustflag: 复权类型（可选，默认3=不复权），可选值: 1=后复权, 2=前复权, 3=不复权
-    
+
     Returns:
         股票K线数据的JSON格式字符串
     """
-    print(f"查询K线数据: stockCode={stock_code}, startDate={start_date}, endDate={end_date}, frequency={frequency}, adjustflag={adjustflag}")
-    
+    stock_code = format_stock_code(stock_code)
+
+    print(
+        f"查询K线数据: stockCode={stock_code}, startDate={start_date}, endDate={end_date}, frequency={frequency}, adjustflag={adjustflag}"
+    )
+
     final_frequency = frequency if frequency else "d"
     final_adjustflag = adjustflag if adjustflag else "3"
-    
+
     response = await stock_data_service.get_stock_k_data(
         stock_code, start_date, end_date, final_frequency, final_adjustflag
     )
-    
+
     if response and response.success:
-        print(f"查询K线数据成功: stockCode={stock_code}, 数据条数={response.data_count}")
+        print(
+            f"查询K线数据成功: stockCode={stock_code}, 数据条数={response.data_count}"
+        )
         return build_kline_response_message(response, final_frequency, final_adjustflag)
     else:
         error_msg = response.error_msg if response else "查询股票K线数据失败"
@@ -46,24 +53,27 @@ async def get_kline(
 
 
 @tool
-async def query_recent_days(stock_code: str, days: int = 30) -> str:
+async def query_recent_days_bao(stock_code: str, days: int = 30) -> str:
     """
     快捷查询最近N天的股票数据
-    
+
     Args:
         stock_code: 股票代码，如 sh.600000 或 sz.000001,必须以sh.(沪市)或sz.(深市)开头
         days: 查询天数，默认30天
-    
+
     Returns:
         股票数据的JSON格式字符串
     """
+    stock_code = format_stock_code(stock_code)
     final_days = days if days > 0 else 30
     print(f"查询近期股票数据: stockCode={stock_code}, days={final_days}")
-    
+
     response = await stock_data_service.stock_query(stock_code, final_days)
-    
+
     if response and response.success:
-        print(f"查询近期股票数据成功: stockCode={stock_code}, 数据条数={response.data_count}")
+        print(
+            f"查询近期股票数据成功: stockCode={stock_code}, 数据条数={response.data_count}"
+        )
         result = []
         result.append(f"股票代码: {response.stock_code}")
         result.append(f"查询近: {final_days}天的数据")
@@ -78,21 +88,21 @@ async def query_recent_days(stock_code: str, days: int = 30) -> str:
 
 
 @tool
-async def get_all_stocks(date: Optional[str] = None) -> str:
+async def get_all_stocks_bao(date: Optional[str] = None) -> str:
     """
     获取所有股票列表
-    
+
     Args:
         date: 查询日期，格式 2024-07-01（可选，不传则查询最新数据）
-    
+
     Returns:
         股票列表的JSON格式字符串
     """
     query_date = date if date else None
     print(f"查询股票列表: date={query_date if query_date else '最新'}")
-    
+
     response = await stock_data_service.query_all_stocks(query_date)
-    
+
     if response and response.success:
         print(f"查询股票列表成功: 股票数量={response.data_count}")
         result = []
@@ -107,19 +117,19 @@ async def get_all_stocks(date: Optional[str] = None) -> str:
 
 
 @tool
-async def get_stocks_by_date(date: str) -> str:
+async def get_stocks_by_date_bao(date: str) -> str:
     """
     获取特定日期的股票列表
-    
+
     Args:
         date: 查询日期，格式 2024-07-01
-    
+
     Returns:
         股票列表的JSON格式字符串
     """
     # 直接调用底层服务，而不是通过工具包装
     response = await stock_data_service.query_all_stocks(date)
-    
+
     if response and response.success:
         print(f"查询股票列表成功: 股票数量={response.data_count}")
         result = []
@@ -154,16 +164,24 @@ def get_frequency_desc(frequency: str) -> str:
         "5": "5分钟",
         "15": "15分钟",
         "30": "30分钟",
-        "60": "60分钟"
+        "60": "60分钟",
     }
     return freq_map.get(frequency, "未知")
 
 
 def get_adjustflag_desc(adjustflag: str) -> str:
     """获取复权类型描述"""
-    adj_map = {
-        "1": "后复权",
-        "2": "前复权",
-        "3": "不复权"
-    }
+    adj_map = {"1": "后复权", "2": "前复权", "3": "不复权"}
     return adj_map.get(adjustflag, "未知")
+
+
+def format_stock_code(stock_code: str) -> str:
+    if stock_code[0:2] != "sh" and stock_code[0:2] != "sz":
+        if len(stock_code) - 2 == 6:
+            # 以6开头的是沪市（包含主板600、601、603、605和科创板688）
+            if stock_code[0:1] == "6":
+                stock_code = "sh." + stock_code
+            # 以0或3开头的是深市（000主板、001主板、002中小板、003中小板、300创业板）
+            elif stock_code[0:1] in ["0", "3"]:
+                stock_code = "sz." + stock_code
+    return stock_code

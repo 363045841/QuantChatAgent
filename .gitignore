@@ -8,3 +8,12 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Memory Bank
+memory-bank/
+
+# Environment variables
+.env
+memory-bank/activeContext.md
+memory-bank/progress.md
+memory-bank/systemPatterns.md

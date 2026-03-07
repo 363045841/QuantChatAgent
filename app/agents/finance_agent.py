@@ -8,12 +8,13 @@ from langgraph.prebuilt import create_react_agent
 from langchain.agents import create_agent
 from app.services.llm_service import llm_service
 from app.tools.stock_tools import (
-    get_kline,
-    query_recent_days,
-    get_all_stocks,
-    get_stocks_by_date,
+    get_kline_bao,
+    query_recent_days_bao,
+    get_all_stocks_bao,
+    get_stocks_by_date_bao,
 )
 from app.tools.code_query import query_code_info
+from app.tools.rag_tools import search_news
 from typing import Optional, List
 
 
@@ -25,11 +26,12 @@ class FinanceAgent:
         self.llm = llm_service.get_chat_model()
         self.streaming_llm = llm_service.get_streaming_model()
         self.tools = [
-            get_kline,
-            query_recent_days,
-            get_all_stocks,
-            get_stocks_by_date,
+            get_kline_bao,
+            query_recent_days_bao,
+            get_all_stocks_bao,
+            get_stocks_by_date_bao,
             query_code_info,
+            search_news,
         ]
 
         # 获取系统提示词

@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     zhipu_embedding_api_url: str = "https://open.bigmodel.cn/api/paas/v4/embeddings"
     zhipu_embedding_model: str = "embedding-3"
     zhipu_embedding_dimensions: int = 1024
+    zhipu_api_key: str = ""  # Embedding API 使用的密钥
+    
+    # RAG 配置
+    rag_collection_name: str = "default"
     
     # 数据库配置
     db_host: str = "localhost"
@@ -39,6 +43,12 @@ class Settings(BaseSettings):
     qdrant_port: int = 6334
     qdrant_collection_name: str = "QuantAgent"
     qdrant_use_grpc: bool = True
+    
+    # 百度智能云 Reranker 配置
+    baidu_reranker_api_key: str = ""
+    baidu_reranker_model: str = "qwen3-reranker-8b"
+    baidu_reranker_base_url: str = "https://qianfan.baidubce.com/v2/rerank"
+    baidu_reranker_top_n: int = 10
     
     class Config:
         env_file = ".env"

@@ -3,7 +3,7 @@
 """
 import asyncio
 import sys
-from app.tools.stock_tools import get_kline, query_recent_days, get_all_stocks, get_stocks_by_date
+from app.tools.stock_tools import get_kline_bao, query_recent_days_bao, get_all_stocks_bao, get_stocks_by_date_bao
 from app.tools.code_query import query_code_info
 
 
@@ -20,7 +20,7 @@ async def test_get_kline():
     print("-" * 60)
     
     try:
-        result = await get_kline.ainvoke({
+        result = await get_kline_bao.ainvoke({
             "stock_code": "sh.600000",
             "start_date": "2024-01-01",
             "end_date": "2024-12-31",
@@ -44,7 +44,7 @@ async def test_query_recent_days():
     print("-" * 60)
     
     try:
-        result = await query_recent_days.ainvoke({
+        result = await query_recent_days_bao.ainvoke({
             "stock_code": "sh.600000",
             "days": 30
         })
@@ -65,7 +65,7 @@ async def test_get_all_stocks():
     print("-" * 60)
     
     try:
-        result = await get_all_stocks.ainvoke({"date": "2024-12-31"})
+        result = await get_all_stocks_bao.ainvoke({"date": "2024-12-31"})
         print("结果:")
         print(result)
         print("\n✅ get_all_stocks 测试通过")
@@ -83,7 +83,7 @@ async def test_get_stocks_by_date():
     print("-" * 60)
     
     try:
-        result = await get_stocks_by_date.ainvoke({"date": "2024-12-31"})
+        result = await get_stocks_by_date_bao.ainvoke({"date": "2024-12-31"})
         print("结果:")
         print(result)
         print("\n✅ get_stocks_by_date 测试通过")
