@@ -1,186 +1,171 @@
 # QuantAgent - 智能金融数据分析助手
 
-基于 FastAPI 和 LangChain 的智能金融数据分析助手，提供专业的股票查询、数据分析和智能问答功能。
+基于 **FastAPI + LangChain** 的 AI Agent 应用，通过自然语言对话查询中国 A 股市场数据（行情、K 线、新闻等），并返回专业的金融分析结果。
 
-## 项目特性
+## 核心特性
 
-- 🤖 **智能对话**: 基于 LangChain 构建的智能 Agent，支持自然语言交互
-- 📊 **股票数据查询**: 支持股票 K 线数据、历史行情查询
-- 🔍 **多维度分析**: 支持按日期、代码等多种方式查询股票数据
-- 💬 **流式响应**: 支持实时流式对话输出
-- 🚀 **高性能**: 基于 FastAPI 和异步处理架构
-- 📝 **API 文档**: 自动生成交互式 API 文档
+- **AI Agent 架构** — 基于 LangGraph 构建的金融分析 Agent，自动编排 6 个专业工具
+- **股票数据查询** — K 线数据、历史行情、股票代码信息查询
+- **RAG 新闻检索** — Qdrant 向量检索 + 百度 Reranker 二阶段精排，提供关联新闻分析
+- **流式对话** — SSE 实时流式输出，支持多轮上下文对话
+- **会话管理** — PostgreSQL 持久化 + Redis 缓存双层架构，基于 Token 预算的滑动窗口
+- **全面懒加载** — 所有外部依赖（LLM、向量库、数据库）延迟初始化，优雅降级
 
 ## 技术栈
 
-- **Web 框架**: FastAPI 0.115.0
-- **AI 框架**: LangChain 0.3.7
-- **LLM 集成**: LangChain OpenAI 0.2.5
-- **数据库**: SQLAlchemy 2.0.36, PostgreSQL
-- **向量数据库**: Qdrant 1.12.1
-- **异步处理**: httpx, asyncpg
-- **工具**: uvicorn, pydantic, python-dotenv
+| 层级 | 技术 |
+|------|------|
+| Web 框架 | FastAPI + Uvicorn |
+| AI 框架 | LangChain 0.3 + LangGraph |
+| LLM | 百度千帆（OpenAI 兼容接口） |
+| Embedding | 智谱 AI embedding-3 |
+| Reranker | 百度千帆 qwen3-reranker-8b |
+| 关系数据库 | PostgreSQL（asyncpg + SQLAlchemy） |
+| 缓存 | Redis |
+| 向量数据库 | Qdrant |
+| Token 计数 | tiktoken |
 
 ## 快速开始
 
 ### 环境要求
 
-- Python >= 3.13.7
+- Python >= 3.13
+- PostgreSQL
+- Redis >= 7.3.0
+- Qdrant（可选，用于新闻检索）
 
-### 安装依赖
-
-#### 方式一：使用 pip
+### 安装
 
 ```bash
+# 推荐：使用 uv
+uv sync
+
+# 或使用 pip
 pip install -r requirements.txt
 ```
 
-#### 方式二：使用 uv（推荐）
+### 配置
 
-```bash
-uv sync
-```
-
-### 环境配置
-
-1. 复制环境变量示例文件：
 ```bash
 cp .env.example .env
 ```
 
-2. 编辑 `.env` 文件，配置必要的环境变量（如 API Key、数据库连接等）
+编辑 `.env`，填写必要配置：
 
-### 启动项目
+| 变量 | 说明 | 必填 |
+|------|------|------|
+| `QIANFAN_API_KEY` | 百度千帆 API Key | 是 |
+| `ZHIPU_API_KEY` | 智谱 AI API Key | 是 |
+| `DB_PASSWORD` | PostgreSQL 密码 | 是 |
+| `REDIS_HOST` / `REDIS_PORT` | Redis 连接信息 | 是 |
+| `QDRANT_HOST` / `QDRANT_PORT` | Qdrant 连接信息 | 否 |
+| `BAIDU_RERANKER_API_KEY` | 百度 Reranker API Key | 否 |
 
-#### 方式一：直接运行（推荐）
+### 数据库初始化
 
 ```bash
-python -m app.main
+psql -U postgres -d quantagent -f migrations/001_create_chat_tables.sql
 ```
 
-#### 方式二：使用 uvicorn
+### 启动
 
 ```bash
+# 直接运行
+python -m app.main
+
+# 或使用 uvicorn（开发模式，热重载）
 uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-#### 方式三：使用 uv
+启动后访问：
+- API 文档：http://localhost:8001/docs
+- 健康检查：http://localhost:8001/api/chat/health
+
+## API 接口
+
+所有接口挂载在 `/api/chat` 路径下，支持 GET/POST 两种方式。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/chat/chat` | 普通对话 |
+| `GET` | `/api/chat/chat-stream` | 流式对话（SSE） |
+| `POST` | `/api/chat/clear-session` | 清空会话历史 |
+| `GET` | `/api/chat/health` | 健康检查 |
+
+**会话管理**：通过 `X-Session-Id` 请求头传递会话 ID，不传则自动创建新会话。
+
+### 示例
 
 ```bash
-uv run python -m app.main
-```
-
-### 访问服务
-
-启动成功后，可以通过以下地址访问：
-
-- **主页**: http://localhost:8001
-- **API 文档**: http://localhost:8001/docs
-- **ReDoc 文档**: http://localhost:8001/redoc
-- **健康检查**: http://localhost:8001/api/chat/health
-
-## 项目结构
-
-```
-quantagentlangchain/
-├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI 应用入口
-│   ├── config.py            # 配置管理
-│   ├── agents/              # AI Agent
-│   │   └── finance_agent.py # 金融分析 Agent
-│   ├── api/                 # API 路由
-│   │   └── chat.py          # 聊天接口
-│   ├── models/              # 数据模型
-│   │   ├── chat.py
-│   │   └── stock.py
-│   ├── services/            # 业务服务
-│   │   ├── llm_service.py   # LLM 服务
-│   │   └── stock_service.py # 股票数据服务
-│   └── tools/               # LangChain 工具
-│       ├── stock_tools.py   # 股票查询工具
-│       └── code_query.py    # 代码查询工具
-├── docs/                    # 文档
-├── memory-bank/             # 项目记忆库
-├── .env                     # 环境变量（不提交到 Git）
-├── .env.example             # 环境变量示例
-├── requirements.txt         # Python 依赖
-├── pyproject.toml           # 项目配置
-└── uv.lock                  # 依赖锁定文件
-```
-
-## 使用示例
-
-### 通过 API 文档测试
-
-1. 访问 http://localhost:8001/docs
-2. 找到 `/api/chat/chat` 接口
-3. 点击 "Try it out"
-4. 输入消息，例如："查询贵州茅台最近的股价走势"
-5. 点击 "Execute" 执行请求
-
-### 通过 cURL 测试
-
-> 💡 详细的 cURL 命令文档请查看 [API_CURL_COMMANDS.md](./API_CURL_COMMANDS.md)
-
-**基本示例**：
-
-```bash
-# 发送普通请求
+# 普通对话
 curl -X POST http://localhost:8001/api/chat/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "查询贵州茅台最近的股价走势"}'
 
-# 发送流式请求
+# 流式对话
 curl -N -X GET "http://localhost:8001/api/chat/chat-stream?message=分析最近的股市行情"
 
-# 健康检查
-curl -X GET http://localhost:8001/api/chat/health
+# 带会话的多轮对话
+curl -X POST http://localhost:8001/api/chat/chat \
+  -H "Content-Type: application/json" \
+  -H "X-Session-Id: my-session-123" \
+  -d '{"message": "那它的基本面怎么样？"}'
 ```
 
-**更多示例**：
-- 查询股票代码：`{"message": "查询600519的股票信息"}`
-- 查询K线数据：`{"message": "查询sh.600519最近30天的数据"}`
-- 查询所有股票：`{"message": "帮我列出所有股票"}`
-- 按日期查询：`{"message": "查询2026-03-06有哪些股票数据"}`
+> 完整 API 文档参见 [docs/API_CURL_COMMANDS.md](./docs/API_CURL_COMMANDS.md)
 
-📖 **完整 API 文档**: [API_CURL_COMMANDS.md](./API_CURL_COMMANDS.md)
+## Agent 工具
 
-## 开发说明
+Agent 自动决策调用以下工具：
 
-### 添加新的工具
+| 工具 | 功能 | 示例 |
+|------|------|------|
+| `get_kline_bao` | 获取 K 线数据（支持日/周/月/分钟线） | "查询sh.600519最近30天的日K线" |
+| `query_recent_days_bao` | 快捷查询最近 N 天数据 | "查询贵州茅台近期的行情" |
+| `get_all_stocks_bao` | 获取所有股票列表 | "列出所有股票" |
+| `get_stocks_by_date_bao` | 获取特定日期股票列表 | "2026-03-06有哪些股票" |
+| `query_code_info` | 查询股票代码基本信息 | "查询600519的股票信息" |
+| `search_news` | RAG 新闻检索 | "贵州茅台最近有什么新闻" |
 
-1. 在 `app/tools/` 目录下创建新的工具文件
-2. 使用 LangChain 的 `@tool` 装饰器定义工具函数
-3. 在 `app/agents/finance_agent.py` 中导入并注册新工具
+## 项目结构
 
-### 配置 LLM
+```
+app/
+├── main.py                 # 应用入口（生命周期、路由注册）
+├── config.py               # Pydantic Settings 配置管理
+├── agents/
+│   └── finance_agent.py    # LangGraph 金融分析 Agent
+├── api/
+│   └── chat.py             # 聊天 API 路由
+├── models/                 # Pydantic/SQLAlchemy 数据模型
+├── services/
+│   ├── llm_service.py      # LLM 服务（百度千帆）
+│   ├── stock_service.py    # 股票数据服务
+│   ├── database_service.py # 数据库服务（双连接池）
+│   ├── redis_client.py     # Redis 客户端
+│   ├── session_service.py  # 会话管理（PG + Redis 滑动窗口）
+│   ├── rag_service.py      # RAG 检索服务
+│   └── reranker_service.py # Reranker 重排序服务
+├── tools/                  # LangChain 工具
+│   ├── stock_tools.py      # 股票查询工具（4 个）
+│   ├── code_query.py       # 股票代码查询工具
+│   └── rag_tools.py        # 新闻搜索工具
+└── tests/                  # 测试
+migrations/                 # 数据库迁移脚本
+docs/                       # 详细文档
+```
 
-在 `app/config.py` 中配置 LLM 相关参数：
-- `OPENAI_API_KEY`: OpenAI API Key
-- `OPENAI_BASE_URL`: API 基础 URL（支持自定义端点）
-- `MODEL_NAME`: 使用的模型名称
+## 开发
 
-## 常见问题
+### 添加新工具
 
-### 导入错误
+1. 在 `app/tools/` 下创建工具文件，使用 `@tool` 装饰器
+2. 在 `app/agents/finance_agent.py` 中注册工具
 
-如果遇到 `ImportError`，请确保：
-1. 已安装所有依赖：`pip install -r requirements.txt`
-2. Python 版本 >= 3.13.7
-3. 虚拟环境已正确激活
+### 环境变量
 
-### 环境变量配置
-
-`.env` 文件不会被 Git 跟踪，请确保：
-1. 复制 `.env.example` 为 `.env`
-2. 填写所有必要的环境变量
-3. 不要将 `.env` 文件提交到版本控制
+完整环境变量说明参见 [.env.example](.env.example)。
 
 ## 许可证
 
 MIT License
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
