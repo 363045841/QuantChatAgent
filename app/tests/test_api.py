@@ -13,7 +13,7 @@ async def test_health_check():
     
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get("http://localhost:8000/api/chat/health", timeout=5.0)
+            response = await client.get("http://localhost:8001/api/chat/health", timeout=5.0)
             print(f"状态码: {response.status_code}")
             print(f"响应: {response.json()}")
             print("✅ 健康检查通过\n")
@@ -30,7 +30,7 @@ async def test_chat_get():
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(
-                "http://localhost:8000/api/chat/chat",
+                "http://localhost:8001/api/chat/chat",
                 params={"message": "你好"},
                 timeout=30.0
             )
@@ -50,7 +50,7 @@ async def test_chat_post():
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
-                "http://localhost:8000/api/chat/chat",
+                "http://localhost:8001/api/chat/chat",
                 json={"message": "查询sh.600519最近3天的数据"},
                 timeout=30.0
             )
@@ -71,7 +71,7 @@ async def test_streaming():
         try:
             async with client.stream(
                 "GET",
-                "http://localhost:8000/api/chat/chat-stream",
+                "http://localhost:8001/api/chat/chat-stream",
                 params={"message": "你好"},
                 timeout=30.0
             ) as response:

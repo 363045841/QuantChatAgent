@@ -1,0 +1,24 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "FastAPI (uvicorn)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "app.main:app",  // 注意这里：必须是 app.main 而不是 main
+                "--host", "127.0.0.1",
+                "--port", "8001"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "PYDEVD_USE_CYTHON": "NO",
+                "PYDEVD_USE_FRAME_EVAL": "NO" // 解决卡死的关键配置
+            },
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

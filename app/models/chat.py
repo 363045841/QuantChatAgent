@@ -14,8 +14,16 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     """聊天响应模型"""
     reply: str = Field(..., description="AI 的回复")
+    session_id: Optional[str] = Field(None, description="会话 ID")
 
 
 class StreamChunk(BaseModel):
     """流式响应数据块"""
     content: str = Field(..., description="当前数据块的内容")
+
+
+class ErrorResponse(BaseModel):
+    """统一错误响应模型"""
+    error: str = Field(..., description="错误类型")
+    message: str = Field(..., description="错误详情")
+    session_id: Optional[str] = Field(None, description="会话 ID（如果可用）")

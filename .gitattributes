@@ -1,0 +1,45 @@
+# 自动检测文本文件并规范化行尾为 LF
+* text=auto eol=lf
+
+# Python 源代码
+*.py text eol=lf
+
+# 配置文件
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.env* text eol=lf
+
+# Markdown 和文档
+*.md text eol=lf
+*.txt text eol=lf
+*.rst text eol=lf
+
+# Shell 脚本（必须使用 LF）
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Web 相关
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.vue text eol=lf
+
+# SQL 文件
+*.sql text eol=lf
+
+# 二进制文件（不转换）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary

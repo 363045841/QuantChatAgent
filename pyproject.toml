@@ -12,6 +12,7 @@ dependencies = [
     "langchain-community",
     "langchain-openai",
     "langgraph",
+    "langchain-qdrant",
     "psycopg2-binary",
     "pydantic",
     "pydantic-settings",
@@ -21,4 +22,7 @@ dependencies = [
     "sqlalchemy",
     "sse-starlette",
     "uvicorn[standard]",
+    "zhipuai",
+    "redis>=7.3.0",
+    "tiktoken>=0.12.0",
 ]

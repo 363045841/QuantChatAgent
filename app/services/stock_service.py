@@ -106,5 +106,17 @@ class StockDataService:
             return None
 
 
-# 全局股票数据服务实例
-stock_data_service = StockDataService()
+# 懒加载股票数据服务实例
+_stock_data_service = None
+
+def get_stock_data_service():
+    """
+    获取股票数据服务实例（懒加载单例）
+    
+    使用懒加载避免在模块导入时创建服务实例，
+    保持架构一致性和更好的资源管理。
+    """
+    global _stock_data_service
+    if _stock_data_service is None:
+        _stock_data_service = StockDataService()
+    return _stock_data_service

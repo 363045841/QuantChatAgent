@@ -1,5 +1,5 @@
 """
-LLM 服务 - 智谱 AI 集成
+LLM 服务 - 百度千帆集成
 """
 
 from langchain_openai import ChatOpenAI
@@ -17,9 +17,9 @@ class LLMService:
     def _create_chat_model(self) -> ChatOpenAI:
         """创建普通聊天模型"""
         return ChatOpenAI(
-            model=settings.zhipu_ai_model,
-            api_key=settings.zhipu_ai_api_key,
-            base_url=settings.zhipu_ai_base_url,
+            model=settings.qianfan_model,
+            api_key=settings.qianfan_api_key,
+            base_url=settings.qianfan_base_url,
             temperature=0.7,
             max_tokens=2048,
             timeout=60,
@@ -28,9 +28,9 @@ class LLMService:
     def _create_streaming_model(self) -> ChatOpenAI:
         """创建流式聊天模型"""
         return ChatOpenAI(
-            model=settings.zhipu_ai_model,
-            api_key=settings.zhipu_ai_api_key,
-            base_url=settings.zhipu_ai_base_url,
+            model=settings.qianfan_model,
+            api_key=settings.qianfan_api_key,
+            base_url=settings.qianfan_base_url,
             temperature=0.7,
             max_tokens=2048,
             streaming=True,
@@ -60,5 +60,17 @@ class LLMService:
 """
 
 
-# 全局 LLM 服务实例
-llm_service = LLMService()
+# 懒加载 LLM 服务实例
+_llm_service = None
+
+def get_llm_service():
+    """
+    获取 LLM 服务实例（懒加载单例）
+    
+    使用懒加载避免在模块导入时创建 ChatOpenAI 实例，
+    防止启动时触发网络连接或 SSL 初始化等重型操作。
+    """
+    global _llm_service
+    if _llm_service is None:
+        _llm_service = LLMService()
+    return _llm_service

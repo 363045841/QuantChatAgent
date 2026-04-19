@@ -61,7 +61,7 @@ python -m app.main
 #### 方式二：使用 uvicorn
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 #### 方式三：使用 uv
@@ -74,10 +74,10 @@ uv run python -m app.main
 
 启动成功后，可以通过以下地址访问：
 
-- **主页**: http://localhost:8000
-- **API 文档**: http://localhost:8000/docs
-- **ReDoc 文档**: http://localhost:8000/redoc
-- **健康检查**: http://localhost:8000/api/chat/health
+- **主页**: http://localhost:8001
+- **API 文档**: http://localhost:8001/docs
+- **ReDoc 文档**: http://localhost:8001/redoc
+- **健康检查**: http://localhost:8001/api/chat/health
 
 ## 项目结构
 
@@ -113,7 +113,7 @@ quantagentlangchain/
 
 ### 通过 API 文档测试
 
-1. 访问 http://localhost:8000/docs
+1. 访问 http://localhost:8001/docs
 2. 找到 `/api/chat/chat` 接口
 3. 点击 "Try it out"
 4. 输入消息，例如："查询贵州茅台最近的股价走势"
@@ -127,15 +127,15 @@ quantagentlangchain/
 
 ```bash
 # 发送普通请求
-curl -X POST http://localhost:8000/api/chat/chat \
+curl -X POST http://localhost:8001/api/chat/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "查询贵州茅台最近的股价走势"}'
 
 # 发送流式请求
-curl -N -X GET "http://localhost:8000/api/chat/chat-stream?message=分析最近的股市行情"
+curl -N -X GET "http://localhost:8001/api/chat/chat-stream?message=分析最近的股市行情"
 
 # 健康检查
-curl -X GET http://localhost:8000/api/chat/health
+curl -X GET http://localhost:8001/api/chat/health
 ```
 
 **更多示例**：

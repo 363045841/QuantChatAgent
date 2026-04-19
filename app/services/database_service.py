@@ -2,9 +2,11 @@
 数据库服务层 - 提供异步数据库访问
 """
 from typing import Optional, List
+import threading
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+import asyncpg
 import logging
 
 from app.config import settings, get_database_url
@@ -13,22 +15,90 @@ from app.models.stock_basic_info import StockBasicInfo, Base
 logger = logging.getLogger(__name__)
 
 
-# 创建异步引擎
-engine = create_async_engine(
-    get_database_url().replace("postgresql://", "postgresql+asyncpg://"),
-    echo=settings.debug,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20
-)
+# 延迟初始化引擎和会话工厂
+_engine = None
+_AsyncSessionLocal = None
 
-# 创建异步会话工厂
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False
-)
+# asyncpg连接池（用于SessionService）
+_pg_pool = None
+
+# 线程安全锁（使用RLock防止嵌套调用死锁）
+_engine_lock = threading.RLock()
+_pool_lock = threading.RLock()
+
+
+def get_engine():
+    """
+    获取数据库引擎（延迟初始化，线程安全）
+
+    使用延迟初始化避免在模块导入时创建引擎和连接池，
+    防止在数据库不可用时导致应用启动失败。
+    """
+    global _engine
+    if _engine is None:
+        with _engine_lock:
+            if _engine is None:
+                _engine = create_async_engine(
+                    get_database_url().replace("postgresql://", "postgresql+asyncpg://"),
+                    echo=False,
+                    pool_pre_ping=True,
+                    pool_size=10,
+                    max_overflow=20
+                )
+    return _engine
+
+
+def get_async_session_local():
+    """
+    获取异步会话工厂（延迟初始化）
+
+    会话工厂依赖引擎，因此也采用延迟初始化。
+    """
+    global _AsyncSessionLocal
+    if _AsyncSessionLocal is None:
+        with _engine_lock:
+            if _AsyncSessionLocal is None:
+                _AsyncSessionLocal = async_sessionmaker(
+                    get_engine(),
+                    class_=AsyncSession,
+                    expire_on_commit=False,
+                    autoflush=False
+                )
+    return _AsyncSessionLocal
+
+
+async def get_pool():
+    """
+    获取asyncpg连接池（用于SessionService，线程安全）
+
+    Returns:
+        asyncpg.pool.Pool: asyncpg连接池实例
+    """
+    global _pg_pool
+    if _pg_pool is None:
+        with _pool_lock:
+            if _pg_pool is None:
+                # 从配置获取连接参数
+                import re
+                db_url = get_database_url()
+                # 解析postgresql://user:pass@host:port/db
+                match = re.match(r'postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', db_url)
+                if match:
+                    user, password, host, port, database = match.groups()
+                    _pg_pool = await asyncpg.create_pool(
+                        host=host,
+                        port=int(port),
+                        user=user,
+                        password=password,
+                        database=database,
+                        min_size=settings.db_min_connections,
+                        max_size=settings.db_max_connections,
+                        command_timeout=60
+                    )
+                else:
+                    # 不在错误信息中暴露完整URL
+                    raise ValueError("Invalid database URL format")
+    return _pg_pool
 
 
 async def get_db_session() -> AsyncSession:
@@ -38,7 +108,7 @@ async def get_db_session() -> AsyncSession:
     Yields:
         AsyncSession: 数据库会话
     """
-    async with AsyncSessionLocal() as session:
+    async with get_async_session_local()() as session:
         try:
             yield session
             await session.commit()
@@ -63,7 +133,7 @@ class StockBasicInfoService:
         Returns:
             StockBasicInfo: 股票基本信息，未找到返回 None
         """
-        async with AsyncSessionLocal() as session:
+        async with get_async_session_local()() as session:
             try:
                 stmt = select(StockBasicInfo).where(
                     StockBasicInfo.a_share_code == code
@@ -127,6 +197,6 @@ class StockBasicInfoService:
 # 初始化数据库表（仅在开发环境使用）
 async def init_db():
     """初始化数据库表（谨慎使用）"""
-    async with engine.begin() as conn:
+    async with get_engine().begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("数据库表初始化完成")

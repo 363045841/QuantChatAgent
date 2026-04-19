@@ -14,6 +14,11 @@ memory-bank/
 
 # Environment variables
 .env
+.env.local
+.env.*.local
 memory-bank/activeContext.md
 memory-bank/progress.md
 memory-bank/systemPatterns.md
+
+# IDE/Tool local config
+.claude/settings.local.json

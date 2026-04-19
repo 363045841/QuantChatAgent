@@ -3,7 +3,7 @@
 """
 
 from langchain.tools import tool
-from app.services.stock_service import stock_data_service
+from app.services.stock_service import get_stock_data_service
 from typing import Optional
 
 
@@ -37,7 +37,8 @@ async def get_kline_bao(
     final_frequency = frequency if frequency else "d"
     final_adjustflag = adjustflag if adjustflag else "3"
 
-    response = await stock_data_service.get_stock_k_data(
+    service = get_stock_data_service()
+    response = await service.get_stock_k_data(
         stock_code, start_date, end_date, final_frequency, final_adjustflag
     )
 
@@ -68,7 +69,8 @@ async def query_recent_days_bao(stock_code: str, days: int = 30) -> str:
     final_days = days if days > 0 else 30
     print(f"查询近期股票数据: stockCode={stock_code}, days={final_days}")
 
-    response = await stock_data_service.stock_query(stock_code, final_days)
+    service = get_stock_data_service()
+    response = await service.stock_query(stock_code, final_days)
 
     if response and response.success:
         print(
@@ -101,7 +103,8 @@ async def get_all_stocks_bao(date: Optional[str] = None) -> str:
     query_date = date if date else None
     print(f"查询股票列表: date={query_date if query_date else '最新'}")
 
-    response = await stock_data_service.query_all_stocks(query_date)
+    service = get_stock_data_service()
+    response = await service.query_all_stocks(query_date)
 
     if response and response.success:
         print(f"查询股票列表成功: 股票数量={response.data_count}")
@@ -127,8 +130,8 @@ async def get_stocks_by_date_bao(date: str) -> str:
     Returns:
         股票列表的JSON格式字符串
     """
-    # 直接调用底层服务，而不是通过工具包装
-    response = await stock_data_service.query_all_stocks(date)
+    service = get_stock_data_service()
+    response = await service.query_all_stocks(date)
 
     if response and response.success:
         print(f"查询股票列表成功: 股票数量={response.data_count}")

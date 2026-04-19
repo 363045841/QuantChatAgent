@@ -1,15 +1,19 @@
 """
 RAG 服务 - 向量检索服务
-使用 Qdrant 向量数据库、智谱 AI Embedding API 和百度智能云 Reranker
+使用 Qdrant 向量数据库、LangChain Embeddings 和百度智能云 Reranker
 """
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
-import httpx
 import logging
+import threading
 from typing import List, Dict, Optional
 from datetime import datetime
-from qdrant_client.http import models
+
+from langchain_community.embeddings import ZhipuAIEmbeddings
+from langchain_qdrant import QdrantVectorStore
+from langchain_core.runnables import RunnableConfig
+
 from app.config import settings
 from app.services.reranker_service import RerankerService
 
@@ -22,66 +26,79 @@ class RAGService:
     """RAG 服务类 - 提供向量检索功能"""
 
     def __init__(self):
-        """初始化 RAG 服务"""
-        # 初始化 Qdrant 客户端
-        self.client = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
-
+        """初始化 RAG 服务 - 只保存配置，不建立连接（真·懒加载）"""
         # 配置信息
-        self.collection_name = settings.rag_collection_name
-        self.embedding_url = settings.zhipu_embedding_api_url
+        self.collection_name = settings.qdrant_collection_name
         self.embedding_model = settings.zhipu_embedding_model
         self.api_key = settings.zhipu_api_key or settings.zhipu_ai_api_key
         self.embedding_dimensions = settings.zhipu_embedding_dimensions
 
-        logger.info(f"RAG Service 初始化完成 - Collection: {self.collection_name}")
+        # 延迟初始化的资源（只有在真正需要时才创建）
+        self._client = None
+        self._embeddings = None
+        self._vectorstore = None
+        self._lock = threading.RLock()  # 使用可重入锁，防止嵌套调用死锁
 
-    async def _get_embedding(self, text: str) -> Optional[List[float]]:
-        """
-        调用智谱 AI Embedding API 生成向量
+        logger.info(f"RAG Service 初始化 - Collection: {self.collection_name}")
 
-        Args:
-            text: 要生成向量的文本
+    @property
+    def client(self):
+        """懒加载 Qdrant 客户端（线程安全）"""
+        if self._client is None:
+            with self._lock:
+                if self._client is None:
+                    url = f"http://{settings.qdrant_host}:{settings.qdrant_port}"
+                    logger.info(f"初始化 Qdrant 客户端: {url}")
+                    try:
+                        self._client = QdrantClient(url=url, timeout=5)
+                    except Exception as e:
+                        logger.error(f"QdrantClient 创建失败: {e}")
+                        raise
+        return self._client
 
-        Returns:
-            向量列表，失败返回 None
-        """
-        if not self.api_key:
-            logger.error("未配置 ZHIPU_API_KEY")
-            return None
-
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-
-        data = {
-            "model": self.embedding_model,
-            "input": text,
-            "dimensions": self.embedding_dimensions,
-        }
-
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    self.embedding_url, headers=headers, json=data
-                )
-
-                if response.status_code == 200:
-                    result = response.json()
-                    embedding = result["data"][0]["embedding"]
-                    return embedding
-                else:
-                    logger.error(
-                        f"Embedding API 调用失败: {response.status_code} - {response.text}"
+    @property
+    def embeddings(self):
+        """懒加载 Embeddings（线程安全）"""
+        if self._embeddings is None:
+            with self._lock:
+                if self._embeddings is None:
+                    logger.info(f"初始化 Embeddings: {self.embedding_model}")
+                    self._embeddings = ZhipuAIEmbeddings(
+                        model=self.embedding_model,
+                        api_key=self.api_key,
+                        dimensions=self.embedding_dimensions,
                     )
-                    return None
+        return self._embeddings
 
-        except Exception as e:
-            logger.error(f"调用 Embedding API 异常: {e}")
-            return None
+    @property
+    def vectorstore(self):
+        """懒加载 VectorStore（线程安全）"""
+        if self._vectorstore is None:
+            with self._lock:
+                if self._vectorstore is None:
+                    logger.info(f"初始化 QdrantVectorStore")
+                    # 数据存储在 payload 根级别：abstract 作为内容，其他字段作为元数据
+                    self._vectorstore = QdrantVectorStore(
+                        client=self.client,
+                        collection_name=self.collection_name,
+                        embedding=self.embeddings,
+                        vector_name="default",
+                        content_payload_key="abstract",
+                        metadata_payload_key=None,
+                    )
+        return self._vectorstore
+
+    @property
+    def retriever(self):
+        """懒加载 Retriever"""
+        return self.vectorstore.as_retriever(search_type="similarity")
 
     async def search(
-        self, query: str, top_k: int = 5, score_threshold: float = 0.5, use_reranker: bool = True
+        self,
+        query: str,
+        top_k: int = 5,
+        score_threshold: float = 0.5,
+        use_reranker: bool = True,
     ) -> List[Dict]:
         """
         向量相似度检索（可选 Reranker 重排序）
@@ -96,35 +113,29 @@ class RAGService:
             检索结果列表，每个结果包含分数和 payload
         """
         try:
+            # 直接使用 Qdrant 客户端进行检索，以获取完整 payload
+            candidate_count = max(top_k * 2, 20)
+            logger.info(f"使用 Qdrant 检索: {query[:50]}... (top_{candidate_count})")
+
             # 生成查询向量
-            logger.info(f"生成查询向量: {query[:50]}...")
-            query_vector = await self._get_embedding(query)
+            query_vector = await self.embeddings.aembed_query(query)
 
-            if query_vector is None:
-                logger.error("查询向量生成失败")
-                return []
-
-            # 向量检索：获取更多候选结果用于 Reranker
-            candidate_count = max(top_k * 2, 20)  # 获取更多候选
-            logger.info(f"在 {self.collection_name} 中检索 top_{candidate_count}...")
-            query_results = self.client.query_points(
+            # 使用 query_points API
+            search_response = self.client.query_points(
                 collection_name=self.collection_name,
                 query=query_vector,
-                using="default",
+                using="default",  # 使用名为 default 的向量
                 limit=candidate_count,
+                score_threshold=score_threshold,
                 with_payload=True,
             )
-            search_results = query_results.points
 
-            # 格式化初步检索结果
+            # 格式化检索结果
             formatted_results = []
-            for result in search_results:
-                if result.score < score_threshold:
-                    continue  # 过滤低分结果
-                
-                payload = result.payload
+            for hit in search_response.points:
+                payload = hit.payload or {}
                 formatted_result = {
-                    "score": result.score,
+                    "score": hit.score,
                     "title": payload.get("title", ""),
                     "abstract": payload.get("abstract", ""),
                     "timestamp": payload.get("timestamp", 0),
@@ -135,22 +146,30 @@ class RAGService:
                 }
                 formatted_results.append(formatted_result)
 
+            logger.info(f"检索到 {len(formatted_results)} 条候选结果")
+
             if not formatted_results:
                 logger.info("未找到符合阈值的结果")
                 return []
 
             # 使用 Reranker 重排序
             if use_reranker and settings.baidu_reranker_api_key:
-                logger.info(f"使用 Reranker 重排序 {len(formatted_results)} 条候选结果...")
+                logger.info(
+                    f"使用 Reranker 重排序 {len(formatted_results)} 条候选结果..."
+                )
                 try:
                     reranker_service = RerankerService()
-                    
+
                     # 构造文档列表（使用摘要作为 Reranker 的输入）
-                    documents = [f"{r['title']}\n{r['abstract']}" for r in formatted_results]
-                    
+                    documents = [
+                        f"{r['title']}\n{r['abstract']}" for r in formatted_results
+                    ]
+
                     # 调用 Reranker
-                    rerank_results = await reranker_service.rerank(query, documents, top_n=top_k)
-                    
+                    rerank_results = await reranker_service.rerank(
+                        query, documents, top_n=top_k
+                    )
+
                     # 根据重排序结果重新组织
                     reranked_dict = {}
                     for result in rerank_results:
@@ -160,19 +179,28 @@ class RAGService:
                             if doc == doc_text:
                                 reranked_dict[i] = result["relevance_score"]
                                 break
-                    
+
                     # 按重排序结果重新排列
                     if reranked_dict:
                         final_results = []
-                        for idx in sorted(reranked_dict.keys(), key=lambda x: reranked_dict[x], reverse=True):
+                        for idx in sorted(
+                            reranked_dict.keys(),
+                            key=lambda x: reranked_dict[x],
+                            reverse=True,
+                        ):
                             original_result = formatted_results[idx]
                             # 更新分数为 Reranker 的分数
                             original_result["score"] = reranked_dict[idx]
                             final_results.append(original_result)
-                        
-                        logger.info(f"Reranker 重排序完成，返回 {len(final_results)} 条结果")
+
+                        # 输出重排序后的结果摘要
+                        logger.info(f"重排序完成，返回 {min(len(final_results), top_k)} 条结果")
+                        for idx, result in enumerate(final_results[:top_k], 1):
+                            title_preview = result['title'][:30] + "..." if len(result['title']) > 30 else result['title']
+                            logger.info(f"  {idx}. [{result['score']:.3f}] {title_preview}")
+
                         return final_results[:top_k]
-                    
+
                 except Exception as e:
                     logger.warning(f"Reranker 调用失败，使用原始结果: {e}")
                     return formatted_results[:top_k]
@@ -279,5 +307,15 @@ class RAGService:
             return False
 
 
-# 全局 RAG Service 实例
-rag_service = RAGService()
+_rag_service = None
+_rag_lock = threading.RLock()
+
+
+def get_rag_service():
+    """获取 RAG 服务单例（线程安全）"""
+    global _rag_service
+    if _rag_service is None:
+        with _rag_lock:
+            if _rag_service is None:
+                _rag_service = RAGService()
+    return _rag_service
