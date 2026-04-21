@@ -13,7 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from app.api.chat import router as chat_router
 from app.config import settings
 from app.services.redis_client import get_redis_client, close_redis_client
-from app.services.session_service import get_session_service
+from app.services.session_service import create_session_service
 from app.services.database_service import get_pool
 from app.models.chat_session import (
     MessageTooLongError,
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
 
         # 初始化会话服务
         logger.info("Initializing session service...")
-        app.state.session_service = await get_session_service(
+        app.state.session_service = create_session_service(
             app.state.redis_client, app.state.pg_pool
         )
         logger.info("Session service initialized")

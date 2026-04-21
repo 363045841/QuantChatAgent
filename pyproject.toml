@@ -25,4 +25,5 @@ dependencies = [
     "zhipuai",
     "redis>=7.3.0",
     "tiktoken>=0.12.0",
+    "tokenizers>=0.22.2",
 ]

@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # 百度千帆 LLM 配置
     qianfan_api_key: str = ""
     qianfan_base_url: str = "https://qianfan.baidubce.com/v2/coding"
-    qianfan_model: str = "qianfan-code-latest"
+    qianfan_model: str = "kimi-k2.5"
     
     # RAG 配置
     rag_collection_name: str = "default"
@@ -49,8 +49,7 @@ class Settings(BaseSettings):
     redis_db: int = 0
     redis_password: Optional[str] = None
     redis_max_connections: int = 50
-    
-    # 会话管理配置
+
     # Token预算
     model_context_window: int = 128000
     max_output_tokens: int = 4096

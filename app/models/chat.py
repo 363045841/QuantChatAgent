@@ -15,6 +15,7 @@ class ChatResponse(BaseModel):
     """聊天响应模型"""
     reply: str = Field(..., description="AI 的回复")
     session_id: Optional[str] = Field(None, description="会话 ID")
+    charts: Optional[list] = Field(None, description="图表配置列表")
 
 
 class StreamChunk(BaseModel):

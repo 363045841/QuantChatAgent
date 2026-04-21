@@ -2,9 +2,9 @@
 金融分析 Agent - 使用 LangGraph 构建的智能助手
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Tuple
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain.agents import create_agent
 
 from app.services.llm_service import get_llm_service
@@ -43,7 +43,12 @@ class FinanceAgent:
             system_prompt=self.system_prompt,
         )
 
-    def chat(self, message: str, chat_history: Optional[List] = None) -> str:
+    def chat(self, message: str, chat_history: Optional[List] = None) -> Tuple[str, Dict[str, Any]]:
+        """同步对话
+
+        Returns:
+            (回复内容, usage信息)
+        """
         messages = []
         if chat_history:
             messages.extend(chat_history)
@@ -52,12 +57,18 @@ class FinanceAgent:
         try:
             result = self.agent.invoke({"messages": messages})
             last_message = result["messages"][-1]
-            return last_message.content
+            usage = self._extract_usage(last_message)
+            return last_message.content, usage
         except Exception as e:
             print(f"对话失败: {e}")
-            return f"抱歉，处理您的请求时出现了错误：{str(e)}"
+            return f"抱歉，处理您的请求时出现了错误：{str(e)}", {}
 
-    async def achat(self, message: str, chat_history: Optional[List] = None) -> str:
+    async def achat(self, message: str, chat_history: Optional[List] = None) -> Tuple[str, Dict[str, Any]]:
+        """异步对话
+
+        Returns:
+            (回复内容, usage信息)
+        """
         messages = []
         if chat_history:
             messages.extend(chat_history)
@@ -66,12 +77,19 @@ class FinanceAgent:
         try:
             result = await self.agent.ainvoke({"messages": messages})
             last_message = result["messages"][-1]
-            return last_message.content
+            usage = self._extract_usage(last_message)
+            return last_message.content, usage
         except Exception as e:
             print(f"对话失败: {e}")
-            return f"抱歉，处理您的请求时出现了错误：{str(e)}"
+            return f"抱歉，处理您的请求时出现了错误：{str(e)}", {}
 
     async def achat_stream(self, message: str, chat_history: Optional[List] = None):
+        """流式对话
+
+        Yields:
+            chunk: 流式响应块
+            最后会 yield 一个包含 usage 的特殊块
+        """
         messages = []
         if chat_history:
             messages.extend(chat_history)
@@ -86,6 +104,30 @@ class FinanceAgent:
         except Exception as e:
             print(f"流式对话失败: {e}")
             yield {"error": f"抱歉，处理您的请求时出现了错误：{str(e)}"}
+
+    def _extract_usage(self, message: AIMessage) -> Dict[str, Any]:
+        """从 AIMessage 中提取 usage 信息"""
+        usage = {}
+
+        # 尝试从 response_metadata 获取
+        if hasattr(message, "response_metadata") and message.response_metadata:
+            token_usage = message.response_metadata.get("token_usage", {})
+            if token_usage:
+                usage = {
+                    "prompt_tokens": token_usage.get("prompt_tokens", 0),
+                    "completion_tokens": token_usage.get("completion_tokens", 0),
+                    "total_tokens": token_usage.get("total_tokens", 0),
+                }
+
+        # 尝试从 usage_metadata 获取（LangChain 新格式）
+        if not usage and hasattr(message, "usage_metadata") and message.usage_metadata:
+            usage = {
+                "prompt_tokens": message.usage_metadata.get("input_tokens", 0),
+                "completion_tokens": message.usage_metadata.get("output_tokens", 0),
+                "total_tokens": message.usage_metadata.get("total_tokens", 0),
+            }
+
+        return usage
 
 
 _finance_agent = None
