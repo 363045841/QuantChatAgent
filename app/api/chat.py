@@ -39,6 +39,7 @@ async def chat_stream(
         "completed": False,
         "full_reply": "",
         "output_tokens": 0,
+        "max_step": 0,  # 记录最大的 langgraph_step
     }
 
     async def event_generator():
@@ -59,7 +60,15 @@ async def chat_stream(
             async for chunk in agent.achat_stream(messages):
                 output = extract_stream_output(chunk)
                 content = output.get("content", "")
-                if content:
+                metadata = output.get("metadata", {})
+                current_step = metadata.get("langgraph_step", 0)
+
+                # 只保留最大 step 的内容（最终回复）
+                # 当遇到更大的 step 时，清空之前累积的内容
+                if current_step > stream_state["max_step"]:
+                    stream_state["max_step"] = current_step
+                    stream_state["full_reply"] = content if content else ""
+                elif content:
                     stream_state["full_reply"] += content
 
                 # 提取 usage_metadata 中的 output_tokens
