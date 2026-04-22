@@ -153,10 +153,11 @@ class LLMService:
 # 懒加载 LLM 服务实例
 _llm_service = None
 
+
 def get_llm_service():
     """
     获取 LLM 服务实例（懒加载单例）
-    
+
     使用懒加载避免在模块导入时创建 ChatOpenAI 实例，
     防止启动时触发网络连接或 SSL 初始化等重型操作。
     """

@@ -194,10 +194,18 @@ class RAGService:
                             final_results.append(original_result)
 
                         # 输出重排序后的结果摘要
-                        logger.info(f"重排序完成，返回 {min(len(final_results), top_k)} 条结果")
+                        logger.info(
+                            f"重排序完成，返回 {min(len(final_results), top_k)} 条结果"
+                        )
                         for idx, result in enumerate(final_results[:top_k], 1):
-                            title_preview = result['title'][:30] + "..." if len(result['title']) > 30 else result['title']
-                            logger.info(f"  {idx}. [{result['score']:.3f}] {title_preview}")
+                            title_preview = (
+                                result["title"][:30] + "..."
+                                if len(result["title"]) > 30
+                                else result["title"]
+                            )
+                            logger.info(
+                                f"  {idx}. [{result['score']:.3f}] {title_preview}"
+                            )
 
                         return final_results[:top_k]
 

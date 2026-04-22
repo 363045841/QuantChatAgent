@@ -2,6 +2,7 @@
 QuantAgent 主应用入口
 基于 FastAPI 和 LangChain 的智能金融数据分析助手
 """
+
 import logging
 from contextlib import asynccontextmanager
 
@@ -18,7 +19,7 @@ from app.services.database_service import get_pool
 from app.models.chat_session import (
     MessageTooLongError,
     SessionBusyError,
-    SessionNotFoundError
+    SessionNotFoundError,
 )
 
 # 配置日志级别 - 抑制第三方库的冗余日志
@@ -53,7 +54,8 @@ async def lifespan(app: FastAPI):
         )
         logger.info("Session service initialized")
 
-        logger.info(f"""
+        logger.info(
+            f"""
     ========================================
     {settings.app_name} v{settings.app_version}
     ========================================
@@ -61,7 +63,8 @@ async def lifespan(app: FastAPI):
     API 文档: http://localhost:{settings.port}/docs
     健康检查: http://localhost:{settings.port}/api/chat/health
     ========================================
-    """)
+    """
+        )
 
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -72,9 +75,9 @@ async def lifespan(app: FastAPI):
     # 关闭事件
     logger.info("应用正在关闭...")
     try:
-        if hasattr(app.state, 'redis_client') and app.state.redis_client:
+        if hasattr(app.state, "redis_client") and app.state.redis_client:
             await close_redis_client()
-        if hasattr(app.state, 'pg_pool') and app.state.pg_pool:
+        if hasattr(app.state, "pg_pool") and app.state.pg_pool:
             await app.state.pg_pool.close()
         logger.info("All services closed successfully")
     except Exception as e:
@@ -103,13 +106,13 @@ app.add_middleware(
 
 # === 全局异常处理器 ===
 
+
 @app.exception_handler(MessageTooLongError)
 async def message_too_long_handler(request: Request, exc: MessageTooLongError):
     """消息过长异常处理"""
     logger.warning(f"Message too long: {exc}")
     return JSONResponse(
-        status_code=400,
-        content={"error": "message_too_long", "message": str(exc)}
+        status_code=400, content={"error": "message_too_long", "message": str(exc)}
     )
 
 
@@ -118,8 +121,7 @@ async def session_busy_handler(request: Request, exc: SessionBusyError):
     """会话繁忙异常处理"""
     logger.warning(f"Session busy: {exc}")
     return JSONResponse(
-        status_code=429,
-        content={"error": "session_busy", "message": str(exc)}
+        status_code=429, content={"error": "session_busy", "message": str(exc)}
     )
 
 
@@ -128,8 +130,7 @@ async def session_not_found_handler(request: Request, exc: SessionNotFoundError)
     """会话不存在异常处理"""
     logger.warning(f"Session not found: {exc}")
     return JSONResponse(
-        status_code=404,
-        content={"error": "session_not_found", "message": str(exc)}
+        status_code=404, content={"error": "session_not_found", "message": str(exc)}
     )
 
 
@@ -138,8 +139,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     """请求参数验证错误处理"""
     logger.warning(f"Validation error: {exc}")
     return JSONResponse(
-        status_code=422,
-        content={"error": "validation_error", "message": str(exc)}
+        status_code=422, content={"error": "validation_error", "message": str(exc)}
     )
 
 
@@ -149,7 +149,7 @@ async def generic_error_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"error": "internal_error", "message": "服务器内部错误"}
+        content={"error": "internal_error", "message": "服务器内部错误"},
     )
 
 
@@ -164,17 +164,17 @@ async def root():
         "message": "欢迎使用 QuantAgent - 智能金融数据分析助手",
         "version": settings.app_version,
         "docs": "/docs",
-        "health": "/api/chat/health"
+        "health": "/api/chat/health",
     }
 
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
-        log_level="info"
+        log_level="info",
     )

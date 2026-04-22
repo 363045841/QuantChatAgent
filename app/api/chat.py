@@ -93,7 +93,7 @@ def extract_stream_output(chunk) -> dict:
         chunk: 流式响应的chunk对象，可能是 (message, metadata) tuple。
 
     Returns:
-        dict: 包含所有字段（content, metadata, tool_calls等）。
+        dict: 包含所有字段(content, metadata, tool_calls等)。
     """
     # 处理 (message, metadata) tuple 格式
     if isinstance(chunk, tuple) and len(chunk) == 2:
@@ -160,7 +160,7 @@ def extract_stream_output(chunk) -> dict:
 
 
 async def get_session_service(request: Request):
-    """获取session_service依赖（从app.state获取）。"""
+    """获取session_service依赖(从app.state获取)。"""
     service = getattr(request.app.state, "session_service", None)
     if service is None:
         raise RuntimeError("Session service not initialized")
@@ -170,7 +170,7 @@ async def get_session_service(request: Request):
 async def get_session_id(x_session_id: Optional[str] = Header(None)) -> str:
     """获取或生成会话ID，验证格式。"""
     if x_session_id:
-        # 验证session_id格式（UUID或自定义安全格式）
+        # 验证session_id格式(UUID或自定义安全格式)
         # 允许字母数字、连字符、下划线，长度8-64
         if not re.match(r"^[a-zA-Z0-9_-]{8,64}$", x_session_id):
             raise HTTPException(
@@ -188,7 +188,7 @@ async def _handle_chat(
 ) -> ChatResponse:
     """处理聊天请求的公共逻辑。"""
     try:
-        # 1. 保存用户消息（token 数未知，存 0）
+        # 1. 保存用户消息(token 数未知，存 0)
         await session_service.save_message(session_id, "user", message, tokens=0)
 
         # 2. 获取历史消息并转换为LangChain格式
@@ -199,16 +199,20 @@ async def _handle_chat(
         agent = get_finance_agent()
         reply, usage = await agent.achat(message, chat_history)
 
-        # 4. 验证并处理<chart>配置
+        # 4. 验证并处理 <chart> 块
         reply, chart_configs = validate_chart_configs(reply)
 
-        # 5. 保存助手回复（使用 API 返回的 completion_tokens）
+        # 5. 保存助手回复(使用 API 返回的 completion_tokens)
+        logger.info(f"reply: {reply}")
         completion_tokens = usage.get("completion_tokens", 0)
+        logger.info(f"completion_tokens: {completion_tokens}")
         await session_service.save_message(
             session_id, "assistant", reply, tokens=completion_tokens
         )
 
-        return ChatResponse(reply=reply, session_id=session_id, charts=chart_configs or None)
+        return ChatResponse(
+            reply=reply, session_id=session_id, charts=chart_configs or None
+        )
 
     except Exception as e:
         logger.error(f"Chat error: {e}", exc_info=True)
@@ -218,22 +222,6 @@ async def _handle_chat(
         )
 
 
-@router.get("/chat", response_model=ChatResponse, deprecated=True)
-async def chat(
-    request: Request,
-    message: str = Query(..., description="用户消息"),
-    x_session_id: Optional[str] = Header(None),
-    session_service=Depends(get_session_service),
-):
-    """聊天接口（GET）。
-
-    .. deprecated::
-        推荐使用 POST /chat 接口，避免 URL 长度限制。
-    """
-    session_id = await get_session_id(x_session_id)
-    return await _handle_chat(message, session_id, session_service)
-
-
 @router.post("/chat", response_model=ChatResponse)
 async def chat_post(
     request: Request,
@@ -241,7 +229,7 @@ async def chat_post(
     x_session_id: Optional[str] = Header(None),
     session_service=Depends(get_session_service),
 ):
-    """聊天接口（POST）。"""
+    """聊天接口(POST)。"""
     session_id = await get_session_id(x_session_id)
     return await _handle_chat(body.message, session_id, session_service)
 
@@ -253,7 +241,7 @@ async def chat_stream(
     x_session_id: Optional[str] = Header(None),
     session_service=Depends(get_session_service),
 ):
-    """流式聊天接口（POST）。"""
+    """流式聊天接口(POST)。"""
     session_id = await get_session_id(x_session_id)
     # 用于追踪流式响应状态
     stream_state = {
@@ -265,7 +253,9 @@ async def chat_stream(
     async def event_generator():
         try:
             # 1. 保存用户消息
-            await session_service.save_message(session_id, "user", body.message, tokens=0)
+            await session_service.save_message(
+                session_id, "user", body.message, tokens=0
+            )
 
             # 2. 获取历史消息并转换为LangChain格式
             history = await session_service.get_sliding_window(session_id)
@@ -312,7 +302,10 @@ async def chat_stream(
                         stream_state["full_reply"]
                     )
                     await session_service.save_message(
-                        session_id, "assistant", reply_to_save, tokens=stream_state["output_tokens"]
+                        session_id,
+                        "assistant",
+                        reply_to_save,
+                        tokens=stream_state["output_tokens"],
                     )
                 except Exception as save_error:
                     logger.error(f"Failed to save stream reply: {save_error}")

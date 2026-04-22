@@ -43,7 +43,9 @@ class FinanceAgent:
             system_prompt=self.system_prompt,
         )
 
-    def chat(self, message: str, chat_history: Optional[List] = None) -> Tuple[str, Dict[str, Any]]:
+    def chat(
+        self, message: str, chat_history: Optional[List] = None
+    ) -> Tuple[str, Dict[str, Any]]:
         """同步对话
 
         Returns:
@@ -63,7 +65,9 @@ class FinanceAgent:
             print(f"对话失败: {e}")
             return f"抱歉，处理您的请求时出现了错误：{str(e)}", {}
 
-    async def achat(self, message: str, chat_history: Optional[List] = None) -> Tuple[str, Dict[str, Any]]:
+    async def achat(
+        self, message: str, chat_history: Optional[List] = None
+    ) -> Tuple[str, Dict[str, Any]]:
         """异步对话
 
         Returns:
