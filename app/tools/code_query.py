@@ -33,5 +33,6 @@ async def query_code_info(code: str) -> str:
         return result
         
     except Exception as e:
-        logger.error(f"查询股票代码 {code} 失败: {e}")
-        raise
+        error_msg = f"查询股票代码 {code} 失败: {str(e)}"
+        logger.error(error_msg)
+        return error_msg

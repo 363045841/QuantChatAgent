@@ -56,12 +56,15 @@ async def test_multiple_tools():
 
 async def test_streaming():
     """测试流式输出"""
+    from langchain_core.messages import HumanMessage
+
     print("=" * 60)
     print("【测试 5】流式输出")
     print("=" * 60)
-    
+
     print("流式输出开始:")
-    async for chunk in finance_agent.achat_stream("你好"):
+    messages = [HumanMessage(content="你好")]
+    async for chunk in finance_agent.achat_stream(messages):
         if isinstance(chunk, dict) and "messages" in chunk:
             messages = chunk["messages"]
             if messages:
